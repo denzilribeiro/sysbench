@@ -42,6 +42,10 @@ if USE_PGSQL
 pgsql_ldadd = drivers/pgsql/libsbpgsql.a $(PGSQL_LIBS)
 endif
 
+if USE_SQLSERVER
+sqlserver_ldadd = drivers/sqlserver/libsbsqlserver.a $(SQLSERVER_LIBS)
+endif
+
 if USE_LUA
 #lua_ldadd = scripting/lua/src/liblua.a -lm @LIBADD_DLOPEN@
 lua_ldadd = scripting/lua/src/liblua.a -lm -ldl
