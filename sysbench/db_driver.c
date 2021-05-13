@@ -132,6 +132,10 @@ int db_register(void)
   register_driver_pgsql(&drivers);
 #endif
 
+#ifdef USE_SQLSERVER
+  register_driver_sqlserver(&drivers);
+#endif
+
   /* Register command line options for each driver */
   SB_LIST_FOR_EACH(pos, &drivers)
   {

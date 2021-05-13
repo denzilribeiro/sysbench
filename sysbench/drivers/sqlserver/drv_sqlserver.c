@@ -17,6 +17,7 @@
 
 #include "sb_options.h"
 #include "db_driver.h"
+#include "sb_counter.h"
 
 #define xfree(ptr) ({ if (ptr) free((void *)ptr); ptr = NULL; })
 
@@ -30,16 +31,14 @@
 
 static sb_arg_t sqlserver_drv_args[] =
 {
-  SB_OPT("sqlserver-host", "SQL Server server host", "localhost", STRING),
-  SB_OPT("sqlserver-port", "SQL Server server port", "1433", INT),
-  SB_OPT("sqlserver-user", "SQL Server user", "sbtest", STRING),
-  SB_OPT("sqlserver-password", "SQL Server password", "", STRING),
-  SB_OPT("sqlserver-db", "SQL Server database name", "sbtest", STRING),
-  SB_OPT("sqlserver-ignore-errors", "list of errors to ignore, or \"all\"",
-          "1205,2627", LIST), // 1205: deadlock, 2627: unique primary key
-  SB_OPT("sqlserver-dry-run", "Dry run, pretend all calls are successful" 
-         "without executing them", "off", BOOL),
-  SB_OPT_END
+  {"sqlserver-host", "SQL Server server host", SB_ARG_TYPE_STRING, "localhost"},
+  {"sqlserver-port", "SQL Server server port", SB_ARG_TYPE_INT, "1433"},
+  {"sqlserver-user", "SQL Server server user", SB_ARG_TYPE_STRING, "sbtest"},
+  {"sqlserver-passwprd", "SQL Server server password", SB_ARG_TYPE_STRING, ""},
+  {"sqlserver-database", "SQL Server server database", SB_ARG_TYPE_STRING, "sbtest"},
+  {"sqlserver-ignore-errors", "list of errors to ignore", SB_ARG_TYPE_LIST, "1205,2627"},
+  {"sqlserver-dry-run", "SQL Pretend calls successfull without executing ", SB_ARG_TYPE_INT, "0"},
+  {NULL, NULL, SB_ARG_TYPE_NULL, NULL}
 };
 
 typedef struct
@@ -50,7 +49,7 @@ typedef struct
   char               *password;
   char               *db;
   sb_list_t          *ignored_errors;
-  bool                dry_run;
+  int                dry_run;
 } sqlserver_drv_args_t;
 
 /* Structure used for DB-to-SQLServer bind types map */
@@ -116,16 +115,23 @@ static int sqlserver_drv_reconnect(db_conn_t *);
 static int sqlserver_drv_prepare(db_stmt_t *, const char *, size_t);
 static int sqlserver_drv_bind_param(db_stmt_t *, db_bind_t *, size_t);
 static int sqlserver_drv_bind_result(db_stmt_t *, db_bind_t *, size_t);
-static db_error_t sqlserver_drv_execute(db_stmt_t *, db_result_t *);
+static db_error_t sqlserver_drv_execute(db_stmt_t *, db_result_set_t *);
 static db_error_t sqlserver_drv_query(db_conn_t *, const char *, size_t, 
-                                      db_result_t *);
-static int sqlserver_drv_free_results(db_result_t *);
+                                      db_result_set_t *);
+static int sqlserver_drv_free_results(db_result_set_t *);
 static int sqlserver_drv_close(db_stmt_t *);
 static int sqlserver_drv_done(void);
 
 static int check_transaction(const char *);
 static SQLRETURN drv_transact(SQLHDBC, int);
 static int convert_to_sqlserver_bind(db_sqlserver_bind_t *, db_bind_t *);
+
+/* Not implemented compared to postgres
+static int sqlserver_drv_fetch(db_result_set_t *);
+static int sqlserver_drv_fetch_row(db_result_set_t *, db_row_t *);
+static unsigned long long sqlserver_drv_num_rows(db_result_set_t *);
+static int sqlserver_drv_store_results(db_result_set_t *);
+*/
 
 static db_driver_t sqlserver_driver =
 {
@@ -134,21 +140,37 @@ static db_driver_t sqlserver_driver =
   .args = sqlserver_drv_args,
   .ops =
   {
-    .init = sqlserver_drv_init,
-    .describe = sqlserver_drv_describe,
-    .connect = sqlserver_drv_connect,
-    .disconnect = sqlserver_drv_disconnect,
-    .reconnect = sqlserver_drv_reconnect,
-    .prepare = sqlserver_drv_prepare,
-    .bind_param = sqlserver_drv_bind_param,
-    .bind_result = sqlserver_drv_bind_result,
-    .execute = sqlserver_drv_execute,
-    .free_results = sqlserver_drv_free_results,
-    .close = sqlserver_drv_close,
-    .query = sqlserver_drv_query,
-    .done = sqlserver_drv_done,
-  }
+    sqlserver_drv_init,
+    sqlserver_drv_describe,
+    sqlserver_drv_connect,
+    sqlserver_drv_disconnect,
+    sqlserver_drv_reconnect,
+    sqlserver_drv_prepare,
+    sqlserver_drv_bind_param,
+    sqlserver_drv_bind_result,
+    sqlserver_drv_execute,
+    sqlserver_drv_free_results,
+    sqlserver_drv_close,
+    sqlserver_drv_query,
+    sqlserver_drv_done
+  },
+  .listitem = {NULL, NULL}
 };
+
+
+/* Local functions 
+
+static int get_pgsql_bind_type(db_bind_type_t);
+static int get_unique_stmt_name(char *, int);
+*/
+
+/* Register SQL Server  */
+int register_driver_sqlserver(sb_list_t *drivers)
+{
+  SB_LIST_ADD_TAIL(&sqlserver_driver.listitem, drivers);
+  return 0;
+}
+
 
 /*
  * Extracts and prints driver error for non-connection ODBC API calls.

@@ -131,6 +131,13 @@ AC_ARG_WITH([pgsql],
 )
 AC_CACHE_CHECK([whether to compile with PostgreSQL support], [ac_cv_use_pgsql], [ac_cv_use_pgsql=yes])
 
+# Check if we should compile with SQL Server support
+AC_ARG_WITH([sqlserver],
+            AS_HELP_STRING([--with-sqlserver],
+                           [compile with SQL Server support (default is disabled)]),
+            [ac_cv_use_sqlserver=$withval], [ac_cv_use_sqlserver=no])
+AC_CACHE_CHECK([whether to compile with SQLServer support], [ac_cv_use_sqlserver], [ac_cv_use_sqlserver=yes])
+
 # Check if we should compile with Lua interpreter support
 AC_LUA_DEVEL
 
@@ -228,6 +235,15 @@ if test x$ac_cv_use_pgsql != xno; then
     AC_SUBST([PGSQL_CFLAGS])
 fi
 AM_CONDITIONAL(USE_PGSQL, test x$ac_cv_use_pgsql != xno)
+
+if test x$with_sqlserver != xno; then
+    AC_CHECK_SQLSERVER([$ac_cv_use_sqlserver])
+    AC_DEFINE(USE_SQLSERVER,1,[Define to 1 if you want to compile with SQL Server support])
+    AC_SUBST([SQLSERVER_LIBS])
+    AC_SUBST([SQLSERVER_CFLAGS])
+fi
+AM_CONDITIONAL(USE_SQLSERVER, test x$with_sqlserver != xno)
+
 
 # Check for libaio
 AC_CHECK_AIO
@@ -457,6 +473,7 @@ sysbench/drivers/mysql/Makefile
 sysbench/drivers/drizzle/Makefile
 sysbench/drivers/oracle/Makefile
 sysbench/drivers/pgsql/Makefile
+sysbench/drivers/sqlserver/Makefile
 sysbench/drivers/attachsql/Makefile
 sysbench/tests/Makefile
 sysbench/tests/cpu/Makefile
